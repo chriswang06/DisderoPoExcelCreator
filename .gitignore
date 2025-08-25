@@ -1,0 +1,42 @@
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+env/
+ENV/
+.venv
+
+# PyInstaller
+build/
+dist/
+*.spec
+*.manifest
+*.exe
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Project specific
+*.jpg
+*.png
+page*.jpg
+output/
+*.xlsx
+!productslist.xlsx  # Include the master file
+*.pdf
+
+# OS
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Temp files
+*.tmp
+*.bak
+*.log

@@ -1,0 +1,9 @@
+opencv-python
+pillow
+pytesseract
+pandas
+numpy
+pdf2image
+xlsxwriter
+openpyxl
+pyinstaller
