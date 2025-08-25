@@ -10,8 +10,8 @@ Write-Host "=====================================" -ForegroundColor Blue
 Write-Host ""
 
 # GitHub repository
-$repoUrl = "https://github.com/chriswang06/po-processor.git"
-$defaultInstallDir = "$env:USERPROFILE\po-processor"
+$repoUrl = "https://github.com/chriswang06/DisderoPoExcelCreator.git"
+$defaultInstallDir = "$env:USERPROFILE\DisderoPoExcelCreator"
 
 # Check Git
 Write-Host "Checking for Git..." -ForegroundColor Green

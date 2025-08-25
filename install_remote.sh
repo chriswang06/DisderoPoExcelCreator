@@ -13,11 +13,11 @@ BLUE='\033[0;34m'
 NC='\033[0m'
 
 # GitHub repository URL (update this with your actual username)
-REPO_URL="https://github.com/chriswang06/po-processor"
-REPO_NAME="po-processor"
+REPO_URL="https://github.com/chriswang06/DisderoPoExcelCreator"
+REPO_NAME="DisderoPoExcelCreator"
 
 echo -e "${BLUE}=====================================${NC}"
-echo -e "${BLUE}   PO Processor - Quick Installer    ${NC}"
+echo -e "${BLUE}   DisderoPoExcelCreator - Quick Installer    ${NC}"
 echo -e "${BLUE}=====================================${NC}"
 echo ""
 
