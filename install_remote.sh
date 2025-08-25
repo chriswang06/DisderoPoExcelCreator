@@ -102,7 +102,17 @@ else
         exit 1
     fi
 fi
-
+# Ensure run.sh exists
+if [ ! -f "run.sh" ]; then
+    echo -e "${GREEN}Creating run.sh launcher...${NC}"
+    cat > run.sh << 'EOF'
+#!/bin/bash
+cd "$(dirname "$0")"
+source venv/bin/activate
+python3 gui_app.py
+EOF
+    chmod +x run.sh
+fi
 # Create desktop entry for Linux
 if [[ "$OSTYPE" == "linux-gnu"* ]]; then
     DESKTOP_FILE="$HOME/.local/share/applications/DisderoPoExcelCreator.desktop"
