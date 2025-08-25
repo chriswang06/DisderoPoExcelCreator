@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# PO Processor - Complete Installation Script
+# DisderoPoExcelCreator - Complete Installation Script
 # This script installs all dependencies and sets up the application
 
 set -e  # Exit on error
@@ -48,7 +48,7 @@ detect_os() {
 # Main installation
 main() {
     echo "======================================"
-    echo "PO Processor - Installation Script"
+    echo "DisderoPoExcelCreator - Installation Script"
     echo "======================================"
     echo ""
 
@@ -292,7 +292,7 @@ create_desktop_shortcut() {
 [Desktop Entry]
 Version=1.0
 Type=Application
-Name=PO Processor
+Name=DisderoPoExcelCreator
 Comment=Process Purchase Orders
 Exec=$(pwd)/venv/bin/python $(pwd)/gui_app.py
 Icon=application-pdf

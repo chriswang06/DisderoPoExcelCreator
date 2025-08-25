@@ -1,11 +1,11 @@
 @echo off
 setlocal enabledelayedexpansion
 
-:: PO Processor - Windows Installation Script
+:: DisderoPoExcelCreator - Windows Installation Script
 :: This script installs all dependencies and sets up the application
 
 echo ======================================
-echo PO Processor - Windows Installation
+echo DisderoPoExcelCreator - Windows Installation
 echo ======================================
 echo.
 
@@ -199,7 +199,7 @@ echo Creating desktop shortcut...
 set DESKTOP=%USERPROFILE%\Desktop
 set SCRIPT_PATH=%~dp0
 
-powershell -Command "& {$WshShell = New-Object -ComObject WScript.Shell; $Shortcut = $WshShell.CreateShortcut('%DESKTOP%\PO Processor.lnk'); $Shortcut.TargetPath = '%SCRIPT_PATH%run.bat'; $Shortcut.WorkingDirectory = '%SCRIPT_PATH%'; $Shortcut.IconLocation = 'shell32.dll,21'; $Shortcut.Save()}"
+powershell -Command "& {$WshShell = New-Object -ComObject WScript.Shell; $Shortcut = $WshShell.CreateShortcut('%DESKTOP%\DisderoPoExcelCreator.lnk'); $Shortcut.TargetPath = '%SCRIPT_PATH%run.bat'; $Shortcut.WorkingDirectory = '%SCRIPT_PATH%'; $Shortcut.IconLocation = 'shell32.dll,21'; $Shortcut.Save()}"
 echo [OK] Desktop shortcut created
 goto :eof
 

@@ -1,11 +1,11 @@
-# PO Processor - Windows Remote Installation Script
+# DisderoPoExcelCreator - Windows Remote Installation Script
 # Run with: iwr -useb https://raw.githubusercontent.com/chriswang06/DisderoPoExcelCreator/main/install_remote.ps1 | iex
 
 # Check for admin rights
 $isAdmin = ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole] "Administrator")
 
 Write-Host "=====================================" -ForegroundColor Blue
-Write-Host "   PO Processor - Quick Installer   " -ForegroundColor Blue
+Write-Host "   DisderoPoExcelCreator - Quick Installer   " -ForegroundColor Blue
 Write-Host "=====================================" -ForegroundColor Blue
 Write-Host ""
 
@@ -53,7 +53,7 @@ if (-not $pythonInstalled) {
 
 # Get installation directory
 Write-Host ""
-Write-Host "Where would you like to install PO Processor?" -ForegroundColor Green
+Write-Host "Where would you like to install DisderoPoExcelCreator?" -ForegroundColor Green
 Write-Host "Default: $defaultInstallDir" -ForegroundColor Yellow
 $installDir = Read-Host "Press Enter for default or enter path"
 
@@ -181,7 +181,7 @@ $createShortcut = Read-Host "Create desktop shortcut? (y/n)"
 if ($createShortcut -eq 'y') {
     $desktop = [Environment]::GetFolderPath("Desktop")
     $WshShell = New-Object -ComObject WScript.Shell
-    $Shortcut = $WshShell.CreateShortcut("$desktop\PO Processor.lnk")
+    $Shortcut = $WshShell.CreateShortcut("$desktop\DisderoPoExcelCreator.lnk")
     $Shortcut.TargetPath = "$installDir\run.bat"
     $Shortcut.WorkingDirectory = $installDir
     $Shortcut.IconLocation = "shell32.dll,21"
@@ -192,7 +192,7 @@ if ($createShortcut -eq 'y') {
 # Create Start Menu entry
 $startMenu = "$env:APPDATA\Microsoft\Windows\Start Menu\Programs"
 $WshShell = New-Object -ComObject WScript.Shell
-$Shortcut = $WshShell.CreateShortcut("$startMenu\PO Processor.lnk")
+$Shortcut = $WshShell.CreateShortcut("$startMenu\DisderoPoExcelCreator.lnk")
 $Shortcut.TargetPath = "$installDir\run.bat"
 $Shortcut.WorkingDirectory = $installDir
 $Shortcut.IconLocation = "shell32.dll,21"
@@ -205,7 +205,7 @@ Write-Host "=====================================" -ForegroundColor Green
 Write-Host ""
 Write-Host "Installation directory: $installDir" -ForegroundColor Yellow
 Write-Host ""
-Write-Host "To run PO Processor:" -ForegroundColor Blue
+Write-Host "To run DisderoPoExcelCreator:" -ForegroundColor Blue
 Write-Host "  1. Double-click the desktop shortcut" -ForegroundColor White
 Write-Host "  2. Or run: $installDir\run.bat" -ForegroundColor White
 Write-Host "  3. Or find it in your Start Menu" -ForegroundColor White

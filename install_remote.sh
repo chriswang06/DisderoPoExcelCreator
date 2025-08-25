@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# PO Processor - Remote Installation Script
+# DisderoPoExcelCreator - Remote Installation Script
 # This script can be run directly from GitHub with curl/wget
 
 set -e
@@ -46,7 +46,7 @@ fi
 
 # Determine installation directory
 DEFAULT_DIR="$HOME/DisderoPoExcelCreator"
-echo -e "${GREEN}Where would you like to install PO Processor?${NC}"
+echo -e "${GREEN}Where would you like to install DisderoPoExcelCreator?${NC}"
 echo -e "Default: ${YELLOW}$DEFAULT_DIR${NC}"
 read -p "Press Enter for default or enter path: " INSTALL_DIR
 
@@ -112,7 +112,7 @@ if [[ "$OSTYPE" == "linux-gnu"* ]]; then
 [Desktop Entry]
 Version=1.0
 Type=Application
-Name=PO Processor
+Name=DisderoPoExcelCreator
 Comment=Process Purchase Orders
 Exec=$INSTALL_DIR/run.sh
 Icon=application-pdf
@@ -135,7 +135,7 @@ fi
 # Add alias if it doesn't exist
 if ! grep -q "alias DisderoPoExcelCreator" "$SHELL_RC" 2>/dev/null; then
     echo "" >> "$SHELL_RC"
-    echo "# PO Processor alias" >> "$SHELL_RC"
+    echo "# DisderoPoExcelCreator alias" >> "$SHELL_RC"
     echo "alias DisderoPoExcelCreator='cd $INSTALL_DIR && ./run.sh'" >> "$SHELL_RC"
     echo -e "${GREEN}Added 'DisderoPoExcelCreator' command to $SHELL_RC${NC}"
 fi
@@ -147,7 +147,7 @@ echo -e "${GREEN}=====================================${NC}"
 echo ""
 echo -e "Installation directory: ${YELLOW}$INSTALL_DIR${NC}"
 echo ""
-echo -e "${BLUE}To run PO Processor:${NC}"
+echo -e "${BLUE}To run DisderoPoExcelCreator:${NC}"
 echo -e "  1. ${YELLOW}cd $INSTALL_DIR && ./run.sh${NC}"
 echo -e "  2. ${YELLOW}DisderoPoExcelCreator${NC} (after restarting terminal)"
 if [[ "$OSTYPE" == "linux-gnu"* ]]; then
