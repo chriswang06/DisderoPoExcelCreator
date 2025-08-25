@@ -1,5 +1,5 @@
 # PO Processor - Windows Remote Installation Script
-# Run with: iwr -useb https://raw.githubusercontent.com/chriswang06/po-processor/main/install_remote.ps1 | iex
+# Run with: iwr -useb https://raw.githubusercontent.com/chriswang06/DisderoPoExcelCreator/main/install_remote.ps1 | iex
 
 # Check for admin rights
 $isAdmin = ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole] "Administrator")

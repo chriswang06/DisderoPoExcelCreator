@@ -45,7 +45,7 @@ if ! command -v git &> /dev/null; then
 fi
 
 # Determine installation directory
-DEFAULT_DIR="$HOME/po-processor"
+DEFAULT_DIR="$HOME/DisderoPoExcelCreator"
 echo -e "${GREEN}Where would you like to install PO Processor?${NC}"
 echo -e "Default: ${YELLOW}$DEFAULT_DIR${NC}"
 read -p "Press Enter for default or enter path: " INSTALL_DIR
@@ -105,7 +105,7 @@ fi
 
 # Create desktop entry for Linux
 if [[ "$OSTYPE" == "linux-gnu"* ]]; then
-    DESKTOP_FILE="$HOME/.local/share/applications/po-processor.desktop"
+    DESKTOP_FILE="$HOME/.local/share/applications/DisderoPoExcelCreator.desktop"
     mkdir -p "$HOME/.local/share/applications"
 
     cat > "$DESKTOP_FILE" << EOF
@@ -133,11 +133,11 @@ if [[ "$SHELL" == *"zsh"* ]]; then
 fi
 
 # Add alias if it doesn't exist
-if ! grep -q "alias po-processor" "$SHELL_RC" 2>/dev/null; then
+if ! grep -q "alias DisderoPoExcelCreator" "$SHELL_RC" 2>/dev/null; then
     echo "" >> "$SHELL_RC"
     echo "# PO Processor alias" >> "$SHELL_RC"
-    echo "alias po-processor='cd $INSTALL_DIR && ./run.sh'" >> "$SHELL_RC"
-    echo -e "${GREEN}Added 'po-processor' command to $SHELL_RC${NC}"
+    echo "alias DisderoPoExcelCreator='cd $INSTALL_DIR && ./run.sh'" >> "$SHELL_RC"
+    echo -e "${GREEN}Added 'DisderoPoExcelCreator' command to $SHELL_RC${NC}"
 fi
 
 echo ""
@@ -149,7 +149,7 @@ echo -e "Installation directory: ${YELLOW}$INSTALL_DIR${NC}"
 echo ""
 echo -e "${BLUE}To run PO Processor:${NC}"
 echo -e "  1. ${YELLOW}cd $INSTALL_DIR && ./run.sh${NC}"
-echo -e "  2. ${YELLOW}po-processor${NC} (after restarting terminal)"
+echo -e "  2. ${YELLOW}DisderoPoExcelCreator${NC} (after restarting terminal)"
 if [[ "$OSTYPE" == "linux-gnu"* ]]; then
     echo -e "  3. Launch from your applications menu"
 fi
