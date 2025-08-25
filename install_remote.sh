@@ -82,7 +82,7 @@ cd "$INSTALL_DIR"
 if [ -f "install.sh" ]; then
     echo -e "${GREEN}Running installation script...${NC}"
     chmod +x install.sh
-    ./install.sh
+    ./install.sh < /dev/null || true
 else
     echo -e "${YELLOW}[!] install.sh not found, performing basic setup...${NC}"
 
