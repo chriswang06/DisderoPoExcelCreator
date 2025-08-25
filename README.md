@@ -27,3 +27,10 @@ install.bat
 # Linux/Mac:
 chmod +x install.sh
 ./install.sh
+
+
+## Quick Installation
+
+### Windows (PowerShell)
+```powershell
+iwr -useb https://raw.githubusercontent.com/chriswang06/po-processor/main/install_remote.ps1 | iex
