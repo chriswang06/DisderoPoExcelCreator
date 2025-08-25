@@ -17,8 +17,8 @@ Automated Purchase Order processing system that extracts data from PDF files usi
 
 ```bash
 # Clone the repository
-git clone https://github.com/yourusername/po-processor.git
-cd po-processor
+git clone https://github.com/chriswang06/DisderoPoExcelCreator.git
+cd DisderoPoExcelCreator
 
 # Run installer based on your OS
 # Windows:
@@ -33,4 +33,7 @@ chmod +x install.sh
 
 ### Windows (PowerShell)
 ```powershell
-iwr -useb https://raw.githubusercontent.com/chriswang06/po-processor/main/install_remote.ps1 | iex
+iwr -useb https://raw.githubusercontent.com/chriswang06/DisderoPoExcelCreator/main/install_remote.ps1 | iex
+
+## LINUX/MAC
+curl -sSL https://raw.githubusercontent.com/chriswang06/DisderoPoExcelCreator/main/install_remote.sh | bash
