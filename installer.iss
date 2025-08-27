@@ -61,7 +61,7 @@ end;
 
 [Registry]
 ; Add Poppler to PATH
-Root: HKLM; Subkey: "SYSTEM\CurrentControlSet\Control\Session Manager\Environment"; ValueType: expandsz; ValueName: "Path"; ValueData: "{olddata};{commonpf}\poppler-23.08.0\Library\bin"; Flags: preservestringtype
+Root: HKLM; Subkey: "SYSTEM\CurrentControlSet\Control\Session Manager\Environment"; ValueType: expandsz; ValueName: "Path"; ValueData: "{olddata};{commonpf}\poppler-25.07.0\Library\bin"; Flags: preservestringtype
 
 [UninstallDelete]
 Type: filesandordirs; Name: "{app}\venv"
