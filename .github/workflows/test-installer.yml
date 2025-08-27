@@ -219,49 +219,25 @@ jobs:
           
           # Test OCR dependencies
           echo "Testing pytesseract..."
-          & $venvPython -c "
-try:
-    import pytesseract
-    print('pytesseract imported successfully')
-except ImportError as e:
-    print(f'pytesseract import failed: {e}')
-"
+          & $venvPython -c "import pytesseract; print('pytesseract imported successfully')" 2>$null
+          if ($LASTEXITCODE -ne 0) { echo "pytesseract import failed" }
           
           echo "Testing PIL/Pillow..."
-          & $venvPython -c "
-try:
-    from PIL import Image
-    print('PIL/Pillow imported successfully')
-except ImportError as e:
-    print(f'PIL/Pillow import failed: {e}')
-"
+          & $venvPython -c "from PIL import Image; print('PIL/Pillow imported successfully')" 2>$null
+          if ($LASTEXITCODE -ne 0) { echo "PIL/Pillow import failed" }
           
           echo "Testing pdf2image..."
-          & $venvPython -c "
-try:
-    import pdf2image
-    print('pdf2image imported successfully')
-except ImportError as e:
-    print(f'pdf2image import failed: {e}')
-"
+          & $venvPython -c "import pdf2image; print('pdf2image imported successfully')" 2>$null
+          if ($LASTEXITCODE -ne 0) { echo "pdf2image import failed" }
           
           echo "Testing openpyxl..."
-          & $venvPython -c "
-try:
-    import openpyxl
-    print('openpyxl imported successfully')
-except ImportError as e:
-    print(f'openpyxl import failed: {e}')
-"
+          & $venvPython -c "import openpyxl; print('openpyxl imported successfully')" 2>$null
+          if ($LASTEXITCODE -ne 0) { echo "openpyxl import failed" }
           
           echo "Testing pandas..."
-          & $venvPython -c "
-try:
-    import pandas
-    print('pandas imported successfully')
-except ImportError as e:
-    print(f'pandas import failed: {e}')
-"
+          & $venvPython -c "import pandas; print('pandas imported successfully')" 2>$null
+          if ($LASTEXITCODE -ne 0) { echo "pandas import failed" }
+          
         } else {
           echo "Cannot test dependencies - venv Python not found"
           exit 1
