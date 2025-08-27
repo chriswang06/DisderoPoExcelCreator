@@ -1,102 +1,159 @@
-name: Test Windows Installer
+name: Debug Windows Installer
 on: [push]
 
 jobs:
-  test:
+  debug-installation:
     runs-on: windows-latest
-    timeout-minutes: 15  # Prevent hanging for hours
+    timeout-minutes: 15
     steps:
-    - uses: actions/checkout@v4  # Updated to latest version
+    - uses: actions/checkout@v4
 
-    - name: Download Installer from Release
+    - name: Download Installer
       run: |
-        # Replace with your actual release URL
         Invoke-WebRequest -Uri "https://github.com/chriswang06/DisderoPoExcelCreator/releases/download/release/DisderoPoExcelCreator-Setup.exe" -OutFile "installer.exe"
         
         # Verify download
-        if (!(Test-Path "installer.exe")) {
-          echo "Failed to download installer"
-          exit 1
+        $file = Get-Item "installer.exe"
+        echo "Downloaded installer: $($file.Length) bytes"
+
+    - name: Run Installer with Debug Info
+      timeout-minutes: 10
+      run: |
+        echo "=== BEFORE INSTALLATION ==="
+        echo "Current directory: $(Get-Location)"
+        echo "Available disk space:"
+        Get-WmiObject -Class Win32_LogicalDisk | Select-Object DeviceID, FreeSpace, Size
+        
+        echo "Existing Program Files contents:"
+        if (Test-Path "C:\Program Files") {
+          Get-ChildItem "C:\Program Files" | Where-Object {$_.Name -like "*Disdero*"} | Select-Object Name
         }
         
-        $fileSize = (Get-Item "installer.exe").Length
-        echo "Downloaded installer size: $fileSize bytes"
-
-    - name: Test Installer
-      timeout-minutes: 10  # Step-level timeout
-      run: |
         try {
-          # Try multiple silent installation flags
+          echo "=== STARTING INSTALLATION ==="
           $processArgs = @{
             FilePath = ".\installer.exe"
-            ArgumentList = @("/VERYSILENT", "/NORESTART", "/SUPPRESSMSGBOXES", "/FORCECLOSEAPPLICATIONS")
+            ArgumentList = @("/VERYSILENT", "/NORESTART", "/SUPPRESSMSGBOXES", "/LOG=install.log")
             Wait = $true
             PassThru = $true
             NoNewWindow = $true
           }
           
-          echo "Starting installation with arguments: $($processArgs.ArgumentList -join ' ')"
           $process = Start-Process @processArgs
+          echo "Installation completed with exit code: $($process.ExitCode)"
           
-          # Check exit code
-          if ($process.ExitCode -eq 0) {
-            echo "Installer completed with exit code 0"
-          } else {
-            echo "Installer failed with exit code: $($process.ExitCode)"
-            exit 1
+          # Check if log file was created
+          if (Test-Path "install.log") {
+            echo "=== INSTALLATION LOG ==="
+            Get-Content "install.log" | Select-Object -Last 20
           }
           
         } catch {
-          echo "Error running installer: $($_.Exception.Message)"
-          exit 1
+          echo "Installation error: $($_.Exception.Message)"
         }
 
-    - name: Verify Installation
+    - name: Search for Installation Files
       run: |
-        # Check if installation completed
-        $mainFile = "C:\Program Files\DisderoPoExcelCreator\gui_app.py"
-        $venvFile = "C:\Program Files\DisderoPoExcelCreator\venv\Scripts\activate.bat"
+        echo "=== SEARCHING FOR INSTALLATION ==="
         
-        if (Test-Path $mainFile) {
-          echo "✓ Installation successful - main files found"
-        } else {
-          echo "✗ Installation failed - main files missing at: $mainFile"
-          
-          # Debug: List what was actually installed
-          $programFiles = "C:\Program Files\DisderoPoExcelCreator"
-          if (Test-Path $programFiles) {
-            echo "Contents of installation directory:"
-            Get-ChildItem $programFiles -Recurse | Select-Object FullName
+        # Search in common installation locations
+        $searchPaths = @(
+          "C:\Program Files\DisderoPoExcelCreator",
+          "C:\Program Files (x86)\DisderoPoExcelCreator", 
+          "C:\Users\$env:USERNAME\AppData\Local\DisderoPoExcelCreator",
+          "C:\Users\$env:USERNAME\AppData\Roaming\DisderoPoExcelCreator",
+          "C:\ProgramData\DisderoPoExcelCreator",
+          "C:\DisderoPoExcelCreator"
+        )
+        
+        echo "Checking common installation paths:"
+        foreach ($path in $searchPaths) {
+          if (Test-Path $path) {
+            echo "✓ FOUND: $path"
+            echo "Contents:"
+            Get-ChildItem $path -Recurse | Select-Object FullName | ForEach-Object { echo "  $($_.FullName)" }
           } else {
-            echo "Installation directory not found: $programFiles"
+            echo "✗ Not found: $path"
           }
-          exit 1
         }
         
-        if (Test-Path $venvFile) {
-          echo "✓ Virtual environment created"
-        } else {
-          echo "✗ Virtual environment missing at: $venvFile"
-          exit 1
-        }
-        
-        echo "All installation checks passed!"
-
-    - name: Test Application Launch (Optional)
-      run: |
-        # Optional: Try to run the application briefly to ensure it works
+        echo "=== SEARCHING ENTIRE SYSTEM ==="
+        # Search for gui_app.py anywhere on the system
+        echo "Searching for gui_app.py files..."
         try {
-          $appPath = "C:\Program Files\DisderoPoExcelCreator\gui_app.py"
-          if (Test-Path $appPath) {
-            # Activate venv and try to run (with timeout)
-            $venvActivate = "C:\Program Files\DisderoPoExcelCreator\venv\Scripts\activate.bat"
-            if (Test-Path $venvActivate) {
-              echo "Testing application launch..."
-              # This is just a basic check - adjust based on your app's behavior
-              # You might want to add --help flag or similar to avoid GUI startup
+          $foundFiles = Get-ChildItem -Path C:\ -Name "gui_app.py" -Recurse -ErrorAction SilentlyContinue
+          if ($foundFiles) {
+            echo "Found gui_app.py at:"
+            $foundFiles | ForEach-Object { echo "  $_" }
+          } else {
+            echo "No gui_app.py files found on system"
+          }
+        } catch {
+          echo "Search error: $($_.Exception.Message)"
+        }
+        
+        # Search for any DisderoPoExcelCreator directories
+        echo "Searching for DisderoPoExcelCreator directories..."
+        try {
+          $foundDirs = Get-ChildItem -Path C:\ -Name "*DisderoPoExcelCreator*" -Directory -Recurse -ErrorAction SilentlyContinue
+          if ($foundDirs) {
+            echo "Found DisderoPoExcelCreator directories:"
+            $foundDirs | ForEach-Object { echo "  $_" }
+          } else {
+            echo "No DisderoPoExcelCreator directories found"
+          }
+        } catch {
+          echo "Directory search error: $($_.Exception.Message)"
+        }
+
+    - name: Check Program Files Changes
+      run: |
+        echo "=== ALL PROGRAM FILES CONTENTS ==="
+        if (Test-Path "C:\Program Files") {
+          echo "C:\Program Files contents:"
+          Get-ChildItem "C:\Program Files" | Select-Object Name, LastWriteTime | Sort-Object LastWriteTime -Descending | Select-Object -First 10
+        }
+        
+        if (Test-Path "C:\Program Files (x86)") {
+          echo "C:\Program Files (x86) contents:"
+          Get-ChildItem "C:\Program Files (x86)" | Select-Object Name, LastWriteTime | Sort-Object LastWriteTime -Descending | Select-Object -First 10
+        }
+
+    - name: Check Windows Registry (if installer uses registry)
+      run: |
+        echo "=== CHECKING REGISTRY ==="
+        try {
+          # Check for uninstall entries
+          $uninstallPaths = @(
+            "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall",
+            "HKLM:\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall"
+          )
+          
+          foreach ($path in $uninstallPaths) {
+            if (Test-Path $path) {
+              $entries = Get-ChildItem $path | Where-Object {
+                $name = (Get-ItemProperty $_.PSPath -ErrorAction SilentlyContinue).DisplayName
+                $name -like "*Disdero*"
+              }
+              
+              if ($entries) {
+                echo "Found registry entries in $path"
+                $entries | ForEach-Object {
+                  $props = Get-ItemProperty $_.PSPath
+                  echo "  Name: $($props.DisplayName)"
+                  echo "  Install Location: $($props.InstallLocation)"
+                }
+              }
             }
           }
         } catch {
-          echo "Warning: Could not test application launch: $($_.Exception.Message)"
-          # Don't fail the build for this optional step
+          echo "Registry check error: $($_.Exception.Message)"
         }
+
+    - name: Upload Installation Log
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: installation-log
+        path: install.log
+        if-no-files-found: ignore
