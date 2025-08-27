@@ -32,17 +32,13 @@ Source: "deps\Release-25.07.0-0.zip"; DestDir: "{tmp}"; Flags: deleteafterinstal
 Filename: "{tmp}\python-3.11.7-amd64.exe"; Parameters: "/quiet InstallAllUsers=1 PrependPath=1"; StatusMsg: "Installing Python..."; Flags: waituntilterminated
 
 ; Install Tesseract
-Filename: "{tmp}\tesseract-ocr-w64-setup-5.3.3.20231005.exe"; Parameters: "/S"; StatusMsg: "Installing Tesseract OCR..."; Flags: waituntilterminated
+Filename: "{tmp}\tesseract-ocr-w64-setup-5.5.0.20241111.exe"; Parameters: "/S"; StatusMsg: "Installing Tesseract OCR..."; Flags: waituntilterminated
 
 ; Extract Poppler
-Filename: "powershell.exe"; Parameters: "-ExecutionPolicy Bypass -Command ""Expand-Archive -Path '{tmp}\Release-23.08.0-0.zip' -DestinationPath '{commonpf}\' -Force"""; StatusMsg: "Installing Poppler..."; Flags: waituntilterminated runhidden
+Filename: "powershell.exe"; Parameters: "-ExecutionPolicy Bypass -Command ""Expand-Archive -Path '{tmp}\Release-25.07.0-0.zip' -DestinationPath '{commonpf}\' -Force"""; StatusMsg: "Installing Poppler..."; Flags: waituntilterminated runhidden
 
 ; Setup Python environment
 Filename: "{cmd}"; Parameters: "/c ""cd /d ""{app}"" && python -m venv venv && venv\Scripts\pip.exe install --upgrade pip && venv\Scripts\pip.exe install -r requirements.txt"""; StatusMsg: "Setting up Python environment..."; Flags: waituntilterminated runhidden
-
-[Icons]
-Name: "{group}\DisderoPoExcelCreator"; Filename: "{app}\run.bat"; IconFilename: "{app}\icon.ico"
-Name: "{commondesktop}\DisderoPoExcelCreator"; Filename: "{app}\run.bat"; IconFilename: "{app}\icon.ico"
 
 [Code]
 procedure CurStepChanged(CurStep: TSetupStep);
