@@ -26,6 +26,7 @@ dist/
 *.jpg
 *.png
 page*.jpg
+/output
 *.xlsx
 !productslist.xlsx  # Include the master file
 *.pdf
