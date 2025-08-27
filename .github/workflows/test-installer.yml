@@ -10,7 +10,7 @@ jobs:
 
     - name: Download Installer from Release
       run: |
-        Invoke-WebRequest -Uri "https://github.com/chriswang06/DisderoPoExcelCreator/releases/download/hopefullyworking/DisderoPoExcelCreator-Setup.exe" -OutFile "installer.exe"
+        Invoke-WebRequest -Uri "https://github.com/chriswang06/DisderoPoExcelCreator/releases/download/release/DisderoPoExcelCreator-Setup.exe" -OutFile "installer.exe"
 
     - name: Test Installer
       timeout-minutes: 15  # Long timeout for Python/Tesseract/Poppler installation
@@ -214,46 +214,56 @@ jobs:
         $venvPython = "C:\Program Files (x86)\DisderoPoExcelCreator\venv\Scripts\python.exe"
         
         if (Test-Path $venvPython) {
-          # Test common dependencies your app likely needs
-          & $venvPython -c "
-          import sys
-          print(f'Python version: {sys.version}')
+          # Test Python version
+          & $venvPython -c "import sys; print(f'Python version: {sys.version}')"
           
           # Test OCR dependencies
-          try:
-              import pytesseract
-              print('✅ pytesseract imported successfully')
-          except ImportError as e:
-              print(f'❌ pytesseract import failed: {e}')
+          echo "Testing pytesseract..."
+          & $venvPython -c "
+try:
+    import pytesseract
+    print('pytesseract imported successfully')
+except ImportError as e:
+    print(f'pytesseract import failed: {e}')
+"
           
-          try:
-              from PIL import Image
-              print('✅ PIL/Pillow imported successfully')
-          except ImportError as e:
-              print(f'❌ PIL/Pillow import failed: {e}')
+          echo "Testing PIL/Pillow..."
+          & $venvPython -c "
+try:
+    from PIL import Image
+    print('PIL/Pillow imported successfully')
+except ImportError as e:
+    print(f'PIL/Pillow import failed: {e}')
+"
           
-          # Test PDF processing
-          try:
-              import pdf2image
-              print('✅ pdf2image imported successfully')  
-          except ImportError as e:
-              print(f'❌ pdf2image import failed: {e}')
+          echo "Testing pdf2image..."
+          & $venvPython -c "
+try:
+    import pdf2image
+    print('pdf2image imported successfully')
+except ImportError as e:
+    print(f'pdf2image import failed: {e}')
+"
           
-          # Test Excel processing
-          try:
-              import openpyxl
-              print('✅ openpyxl imported successfully')
-          except ImportError as e:
-              print(f'❌ openpyxl import failed: {e}')
-              
-          try:
-              import pandas
-              print('✅ pandas imported successfully')
-          except ImportError as e:
-              print(f'❌ pandas import failed: {e}')
-          "
+          echo "Testing openpyxl..."
+          & $venvPython -c "
+try:
+    import openpyxl
+    print('openpyxl imported successfully')
+except ImportError as e:
+    print(f'openpyxl import failed: {e}')
+"
+          
+          echo "Testing pandas..."
+          & $venvPython -c "
+try:
+    import pandas
+    print('pandas imported successfully')
+except ImportError as e:
+    print(f'pandas import failed: {e}')
+"
         } else {
-          echo "❌ Cannot test dependencies - venv Python not found"
+          echo "Cannot test dependencies - venv Python not found"
           exit 1
         }
 
