@@ -13,7 +13,6 @@ build/*
 dist/
 *.spec
 *.manifest
-*.exe
 
 # IDE
 .vscode/
