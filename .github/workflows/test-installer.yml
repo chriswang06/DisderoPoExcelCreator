@@ -53,6 +53,7 @@ jobs:
         }
 
     - name: Search for Installation Files
+      timeout-minutes: 3  # Limit search time
       run: |
         echo "=== SEARCHING FOR INSTALLATION ==="
         
@@ -63,7 +64,9 @@ jobs:
           "C:\Users\$env:USERNAME\AppData\Local\DisderoPoExcelCreator",
           "C:\Users\$env:USERNAME\AppData\Roaming\DisderoPoExcelCreator",
           "C:\ProgramData\DisderoPoExcelCreator",
-          "C:\DisderoPoExcelCreator"
+          "C:\DisderoPoExcelCreator",
+          "C:\temp\DisderoPoExcelCreator",
+          "$env:USERPROFILE\DisderoPoExcelCreator"
         )
         
         echo "Checking common installation paths:"
@@ -77,33 +80,57 @@ jobs:
           }
         }
         
-        echo "=== SEARCHING ENTIRE SYSTEM ==="
-        # Search for gui_app.py anywhere on the system
-        echo "Searching for gui_app.py files..."
-        try {
-          $foundFiles = Get-ChildItem -Path C:\ -Name "gui_app.py" -Recurse -ErrorAction SilentlyContinue
-          if ($foundFiles) {
-            echo "Found gui_app.py at:"
-            $foundFiles | ForEach-Object { echo "  $_" }
-          } else {
-            echo "No gui_app.py files found on system"
+        echo "=== LIMITED SYSTEM SEARCH ==="
+        # Search only in likely directories (much faster)
+        $searchRoots = @(
+          "C:\Program Files",
+          "C:\Program Files (x86)",
+          "C:\Users\$env:USERNAME\AppData",
+          "C:\ProgramData"
+        )
+        
+        foreach ($root in $searchRoots) {
+          if (Test-Path $root) {
+            echo "Searching in $root for DisderoPoExcelCreator..."
+            try {
+              $timeout = 30 # 30 second timeout per directory
+              $job = Start-Job -ScriptBlock {
+                param($searchPath)
+                Get-ChildItem -Path $searchPath -Name "*DisderoPoExcelCreator*" -Directory -Recurse -ErrorAction SilentlyContinue
+              } -ArgumentList $root
+              
+              if (Wait-Job $job -Timeout $timeout) {
+                $results = Receive-Job $job
+                if ($results) {
+                  echo "  Found directories:"
+                  $results | ForEach-Object { echo "    $root\$_" }
+                }
+              } else {
+                echo "  Search timed out in $root"
+                Stop-Job $job
+              }
+              Remove-Job $job -Force
+              
+            } catch {
+              echo "  Search error in $root`: $($_.Exception.Message)"
+            }
           }
-        } catch {
-          echo "Search error: $($_.Exception.Message)"
         }
         
-        # Search for any DisderoPoExcelCreator directories
-        echo "Searching for DisderoPoExcelCreator directories..."
-        try {
-          $foundDirs = Get-ChildItem -Path C:\ -Name "*DisderoPoExcelCreator*" -Directory -Recurse -ErrorAction SilentlyContinue
-          if ($foundDirs) {
-            echo "Found DisderoPoExcelCreator directories:"
-            $foundDirs | ForEach-Object { echo "  $_" }
-          } else {
-            echo "No DisderoPoExcelCreator directories found"
+        # Quick check for recently modified directories in Program Files
+        echo "=== RECENTLY MODIFIED DIRECTORIES ==="
+        $cutoffTime = (Get-Date).AddMinutes(-10) # Files modified in last 10 minutes
+        
+        @("C:\Program Files", "C:\Program Files (x86)") | ForEach-Object {
+          if (Test-Path $_) {
+            echo "Recently modified in $($_):"
+            try {
+              Get-ChildItem $_ -Directory | Where-Object { $_.LastWriteTime -gt $cutoffTime } | 
+                Select-Object Name, LastWriteTime | ForEach-Object { echo "  $($_.Name) - $($_.LastWriteTime)" }
+            } catch {
+              echo "  Could not check recent modifications"
+            }
           }
-        } catch {
-          echo "Directory search error: $($_.Exception.Message)"
         }
 
     - name: Check Program Files Changes
