@@ -1,186 +1,66 @@
-name: Debug Windows Installer
+name: Test Windows Installer
 on: [push]
 
 jobs:
-  debug-installation:
+  test:
     runs-on: windows-latest
     timeout-minutes: 15
     steps:
     - uses: actions/checkout@v4
 
-    - name: Download Installer
+    - name: Download Installer from Release
       run: |
         Invoke-WebRequest -Uri "https://github.com/chriswang06/DisderoPoExcelCreator/releases/download/release/DisderoPoExcelCreator-Setup.exe" -OutFile "installer.exe"
-        
-        # Verify download
-        $file = Get-Item "installer.exe"
-        echo "Downloaded installer: $($file.Length) bytes"
 
-    - name: Run Installer with Debug Info
-      timeout-minutes: 10
+    - name: Test Installer
+      timeout-minutes: 5
       run: |
-        echo "=== BEFORE INSTALLATION ==="
-        echo "Current directory: $(Get-Location)"
-        echo "Available disk space:"
-        Get-WmiObject -Class Win32_LogicalDisk | Select-Object DeviceID, FreeSpace, Size
-        
-        echo "Existing Program Files contents:"
-        if (Test-Path "C:\Program Files") {
-          Get-ChildItem "C:\Program Files" | Where-Object {$_.Name -like "*Disdero*"} | Select-Object Name
-        }
-        
         try {
-          echo "=== STARTING INSTALLATION ==="
-          $processArgs = @{
-            FilePath = ".\installer.exe"
-            ArgumentList = @("/VERYSILENT", "/NORESTART", "/SUPPRESSMSGBOXES", "/LOG=install.log")
-            Wait = $true
-            PassThru = $true
-            NoNewWindow = $true
+          echo "Starting installation..."
+          $process = Start-Process -FilePath ".\installer.exe" -ArgumentList "/VERYSILENT", "/NORESTART", "/SUPPRESSMSGBOXES" -Wait -PassThru -NoNewWindow
+          
+          if ($process.ExitCode -eq 0) {
+            echo "Installation completed successfully"
+          } else {
+            echo "Installation failed with exit code: $($process.ExitCode)"
+            exit 1
           }
-          
-          $process = Start-Process @processArgs
-          echo "Installation completed with exit code: $($process.ExitCode)"
-          
-          # Check if log file was created
-          if (Test-Path "install.log") {
-            echo "=== INSTALLATION LOG ==="
-            Get-Content "install.log" | Select-Object -Last 20
-          }
-          
         } catch {
           echo "Installation error: $($_.Exception.Message)"
+          exit 1
         }
 
-    - name: Search for Installation Files
-      timeout-minutes: 3  # Limit search time
+    - name: Verify Installation
       run: |
-        echo "=== SEARCHING FOR INSTALLATION ==="
-        
-        # Search in common installation locations
-        $searchPaths = @(
-          "C:\Program Files\DisderoPoExcelCreator",
-          "C:\Program Files (x86)\DisderoPoExcelCreator", 
-          "C:\Users\$env:USERNAME\AppData\Local\DisderoPoExcelCreator",
-          "C:\Users\$env:USERNAME\AppData\Roaming\DisderoPoExcelCreator",
-          "C:\ProgramData\DisderoPoExcelCreator",
-          "C:\DisderoPoExcelCreator",
-          "C:\temp\DisderoPoExcelCreator",
-          "$env:USERPROFILE\DisderoPoExcelCreator"
-        )
-        
-        echo "Checking common installation paths:"
-        foreach ($path in $searchPaths) {
-          if (Test-Path $path) {
-            echo "✓ FOUND: $path"
-            echo "Contents:"
-            Get-ChildItem $path -Recurse | Select-Object FullName | ForEach-Object { echo "  $($_.FullName)" }
-          } else {
-            echo "✗ Not found: $path"
-          }
+        # Check the CORRECT installation path (x86)
+        if (Test-Path "C:\Program Files (x86)\DisderoPoExcelCreator\gui_app.py") {
+          echo "✅ Installation successful - main files found"
+        } else {
+          echo "❌ Installation failed - gui_app.py missing"
+          exit 1
         }
         
-        echo "=== LIMITED SYSTEM SEARCH ==="
-        # Search only in likely directories (much faster)
-        $searchRoots = @(
-          "C:\Program Files",
-          "C:\Program Files (x86)",
-          "C:\Users\$env:USERNAME\AppData",
-          "C:\ProgramData"
-        )
-        
-        foreach ($root in $searchRoots) {
-          if (Test-Path $root) {
-            echo "Searching in $root for DisderoPoExcelCreator..."
-            try {
-              $timeout = 30 # 30 second timeout per directory
-              $job = Start-Job -ScriptBlock {
-                param($searchPath)
-                Get-ChildItem -Path $searchPath -Name "*DisderoPoExcelCreator*" -Directory -Recurse -ErrorAction SilentlyContinue
-              } -ArgumentList $root
-              
-              if (Wait-Job $job -Timeout $timeout) {
-                $results = Receive-Job $job
-                if ($results) {
-                  echo "  Found directories:"
-                  $results | ForEach-Object { echo "    $root\$_" }
-                }
-              } else {
-                echo "  Search timed out in $root"
-                Stop-Job $job
-              }
-              Remove-Job $job -Force
-              
-            } catch {
-              echo "  Search error in $root`: $($_.Exception.Message)"
-            }
-          }
+        # Check virtual environment
+        if (Test-Path "C:\Program Files (x86)\DisderoPoExcelCreator\venv\Scripts\activate.bat") {
+          echo "✅ Virtual environment created successfully"
+        } else {
+          echo "❌ Virtual environment missing"
+          exit 1
         }
         
-        # Quick check for recently modified directories in Program Files
-        echo "=== RECENTLY MODIFIED DIRECTORIES ==="
-        $cutoffTime = (Get-Date).AddMinutes(-10) # Files modified in last 10 minutes
-        
-        @("C:\Program Files", "C:\Program Files (x86)") | ForEach-Object {
-          if (Test-Path $_) {
-            echo "Recently modified in $($_):"
-            try {
-              Get-ChildItem $_ -Directory | Where-Object { $_.LastWriteTime -gt $cutoffTime } | 
-                Select-Object Name, LastWriteTime | ForEach-Object { echo "  $($_.Name) - $($_.LastWriteTime)" }
-            } catch {
-              echo "  Could not check recent modifications"
-            }
-          }
-        }
+        echo "🎉 All installation checks passed!"
 
-    - name: Check Program Files Changes
+    - name: Test Application Launch (Optional)
       run: |
-        echo "=== ALL PROGRAM FILES CONTENTS ==="
-        if (Test-Path "C:\Program Files") {
-          echo "C:\Program Files contents:"
-          Get-ChildItem "C:\Program Files" | Select-Object Name, LastWriteTime | Sort-Object LastWriteTime -Descending | Select-Object -First 10
-        }
-        
-        if (Test-Path "C:\Program Files (x86)") {
-          echo "C:\Program Files (x86) contents:"
-          Get-ChildItem "C:\Program Files (x86)" | Select-Object Name, LastWriteTime | Sort-Object LastWriteTime -Descending | Select-Object -First 10
-        }
-
-    - name: Check Windows Registry (if installer uses registry)
-      run: |
-        echo "=== CHECKING REGISTRY ==="
         try {
-          # Check for uninstall entries
-          $uninstallPaths = @(
-            "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall",
-            "HKLM:\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall"
-          )
+          $appPath = "C:\Program Files (x86)\DisderoPoExcelCreator\gui_app.py"
+          $venvPython = "C:\Program Files (x86)\DisderoPoExcelCreator\venv\Scripts\python.exe"
           
-          foreach ($path in $uninstallPaths) {
-            if (Test-Path $path) {
-              $entries = Get-ChildItem $path | Where-Object {
-                $name = (Get-ItemProperty $_.PSPath -ErrorAction SilentlyContinue).DisplayName
-                $name -like "*Disdero*"
-              }
-              
-              if ($entries) {
-                echo "Found registry entries in $path"
-                $entries | ForEach-Object {
-                  $props = Get-ItemProperty $_.PSPath
-                  echo "  Name: $($props.DisplayName)"
-                  echo "  Install Location: $($props.InstallLocation)"
-                }
-              }
-            }
+          if ((Test-Path $appPath) -and (Test-Path $venvPython)) {
+            echo "✅ Application files are accessible"
+            # You could add more tests here like checking if dependencies are installed
+            # & $venvPython -c "import tkinter; print('GUI framework available')"
           }
         } catch {
-          echo "Registry check error: $($_.Exception.Message)"
+          echo "Warning: Could not test application launch: $($_.Exception.Message)"
         }
-
-    - name: Upload Installation Log
-      if: always()
-      uses: actions/upload-artifact@v4
-      with:
-        name: installation-log
-        path: install.log
-        if-no-files-found: ignore
