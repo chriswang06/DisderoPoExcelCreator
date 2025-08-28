@@ -48,8 +48,21 @@ jobs:
         # Install Inno Setup silently
         Start-Process -FilePath ".\innosetup.exe" -ArgumentList "/VERYSILENT", "/NORESTART" -Wait
         
-        # Build installer
-        & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" installer.iss
+        # Check which .iss files exist
+        Write-Host "Looking for installer files:"
+        Get-ChildItem -Filter "*.iss" | ForEach-Object { Write-Host "  - $_" }
+        
+        # Build installer (update filename to match your actual file)
+        if (Test-Path "simple_installer.iss") {
+          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" simple_installer.iss
+        } elseif (Test-Path "installer.iss") {
+          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" installer.iss
+        } elseif (Test-Path "installer_exe_version.iss") {
+          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" installer_exe_version.iss
+        } else {
+          Write-Error "No installer script found!"
+          exit 1
+        }
 
     - name: Upload installer artifact
       uses: actions/upload-artifact@v4
@@ -66,3 +79,5 @@ jobs:
           output/DisderoPoExcelCreator-Setup.exe
         draft: false
         prerelease: false
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
