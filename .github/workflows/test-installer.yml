@@ -10,7 +10,7 @@ jobs:
 
     - name: Download Installer from Release
       run: |
-        Invoke-WebRequest -Uri "https://github.com/chriswang06/DisderoPoExcelCreator/releases/download/hopefullyworking/DisderoPoExcelCreator-Setup.exe" -OutFile "installer.exe"
+        Invoke-WebRequest -Uri "https://github.com/chriswang06/DisderoPoExcelCreator/releases/download/1.0.2/DisderoPoExcelCreator-Setup.exe" -OutFile "installer.exe"
 
     - name: Test Installer
       timeout-minutes: 15  # Long timeout for Python/Tesseract/Poppler installation
