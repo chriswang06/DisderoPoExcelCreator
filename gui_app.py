@@ -33,35 +33,17 @@ from src.pdf_processor import PDFProcessor
 from src.ocr_extractor import OCRExtractor
 from src.product_matcher import ProductMatcher
 from src.excel_generator import ExcelGenerator
+from src.runtime_config import configure_tools
 
 # Configure Tesseract and Poppler paths
-import pytesseract
-from pdf2image import convert_from_path
+try:
+    TESSERACT_PATH, POPPLER_PATH = configure_tools()
+except Exception as e:
+    # Show error dialog if tools not found
+    import tkinter.messagebox as mb
 
-# Set Tesseract path (will be set by installer, but have fallback)
-tesseract_paths = [
-    r'C:\Program Files\Tesseract-OCR\tesseract.exe',
-    r'C:\Program Files (x86)\Tesseract-OCR\tesseract.exe',
-]
-
-for path in tesseract_paths:
-    if os.path.exists(path):
-        pytesseract.pytesseract.tesseract_cmd = path
-        break
-
-# Set Poppler path for pdf2image
-poppler_paths = [
-    r'C:\Program Files\poppler-25.07.0\Library\bin',
-    r'C:\Program Files\poppler-23.08.0\Library\bin',
-    r'C:\Program Files (x86)\poppler-25.07.0\Library\bin',
-    r'C:\Program Files (x86)\poppler-23.08.0\Library\bin',
-]
-
-POPPLER_PATH = None
-for path in poppler_paths:
-    if os.path.exists(path):
-        POPPLER_PATH = path
-        break
+    mb.showerror("Configuration Error", str(e))
+    sys.exit(1)
 
 
 class POProcessorGUI:
