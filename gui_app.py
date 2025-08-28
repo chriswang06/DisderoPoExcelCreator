@@ -9,13 +9,59 @@ from tkinter import filedialog, messagebox, ttk
 from pathlib import Path
 import threading
 import sys
+import os
 import traceback
+
+
+# Add resource path function for PyInstaller
+def get_resource_path(relative_path):
+    """Get absolute path to resource, works for dev and for PyInstaller"""
+    try:
+        # PyInstaller creates a temp folder and stores path in _MEIPASS
+        base_path = sys._MEIPASS
+    except AttributeError:
+        base_path = os.path.abspath(".")
+
+    return os.path.join(base_path, relative_path)
+
+
+# Add the src directory to path for imports
+sys.path.insert(0, get_resource_path('src'))
 
 # Import our modules
 from src.pdf_processor import PDFProcessor
 from src.ocr_extractor import OCRExtractor
 from src.product_matcher import ProductMatcher
 from src.excel_generator import ExcelGenerator
+
+# Configure Tesseract and Poppler paths
+import pytesseract
+from pdf2image import convert_from_path
+
+# Set Tesseract path (will be set by installer, but have fallback)
+tesseract_paths = [
+    r'C:\Program Files\Tesseract-OCR\tesseract.exe',
+    r'C:\Program Files (x86)\Tesseract-OCR\tesseract.exe',
+]
+
+for path in tesseract_paths:
+    if os.path.exists(path):
+        pytesseract.pytesseract.tesseract_cmd = path
+        break
+
+# Set Poppler path for pdf2image
+poppler_paths = [
+    r'C:\Program Files\poppler-25.07.0\Library\bin',
+    r'C:\Program Files\poppler-23.08.0\Library\bin',
+    r'C:\Program Files (x86)\poppler-25.07.0\Library\bin',
+    r'C:\Program Files (x86)\poppler-23.08.0\Library\bin',
+]
+
+POPPLER_PATH = None
+for path in poppler_paths:
+    if os.path.exists(path):
+        POPPLER_PATH = path
+        break
 
 
 class POProcessorGUI:
@@ -27,7 +73,14 @@ class POProcessorGUI:
 
         # Variables
         self.pdf_path = tk.StringVar()
-        self.master_path = tk.StringVar(value="productslist.xlsx")
+        # Use the resource path for the default master file
+        default_master = get_resource_path("productslist.xlsx")
+        if os.path.exists(default_master):
+            self.master_path = tk.StringVar(value=default_master)
+        else:
+            # Fallback to looking in current directory
+            self.master_path = tk.StringVar(value="productslist.xlsx")
+
         self.output_path = tk.StringVar()
         self.status_text = tk.StringVar(value="Ready")
         self.progress_text = tk.StringVar()
@@ -231,9 +284,9 @@ class POProcessorGUI:
             # Start progress bar
             self.progress_bar.start(10)
 
-            # Step 1: Convert PDF to images
+            # Step 1: Convert PDF to images (pass poppler_path if needed)
             self.update_progress("Converting PDF to images...")
-            pdf_processor = PDFProcessor(dpi=self.dpi_var.get())
+            pdf_processor = PDFProcessor(dpi=self.dpi_var.get(), poppler_path=POPPLER_PATH)
             images = pdf_processor.convert_pdf_to_images(self.pdf_path.get())
 
             # Step 2: Combine images and perform OCR

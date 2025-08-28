@@ -12,14 +12,16 @@ import shutil
 
 
 class PDFProcessor:
-    def __init__(self, dpi: int = 300):
+    def __init__(self, dpi: int = 300, poppler_path=None):
         """
         Initialize PDF processor
 
         Args:
             dpi: Resolution for PDF to image conversion
+            poppler_path: Path to Poppler binaries (for Windows)
         """
         self.dpi = dpi
+        self.poppler_path = poppler_path
         self.temp_dir = None
         self.temp_files = []
 
@@ -37,8 +39,21 @@ class PDFProcessor:
         self.temp_dir = tempfile.mkdtemp(prefix="po_processor_")
         temp_path = Path(self.temp_dir)
 
-        # Convert PDF to images
-        images = convert_from_path(pdf_path, self.dpi)
+        # Convert PDF to images with poppler_path if provided
+        try:
+            if self.poppler_path:
+                images = convert_from_path(
+                    pdf_path,
+                    dpi=self.dpi,
+                    poppler_path=self.poppler_path
+                )
+            else:
+                images = convert_from_path(pdf_path, dpi=self.dpi)
+        except Exception as e:
+            # Clean up temp directory if conversion fails
+            if self.temp_dir:
+                self.cleanup_temp_files()
+            raise Exception(f"Failed to convert PDF to images: {str(e)}")
 
         # Save images temporarily if needed for debugging
         saved_images = []
@@ -84,6 +99,11 @@ class PDFProcessor:
     def cleanup_temp_files(self):
         """Clean up temporary files and directory"""
         if self.temp_dir and Path(self.temp_dir).exists():
-            shutil.rmtree(self.temp_dir)
-            self.temp_dir = None
-            self.temp_files = []
+            try:
+                shutil.rmtree(self.temp_dir)
+            except Exception as e:
+                # Sometimes Windows holds onto files, just log the error
+                print(f"Warning: Could not fully clean up temp files: {e}")
+            finally:
+                self.temp_dir = None
+                self.temp_files = []

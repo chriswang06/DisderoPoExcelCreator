@@ -1,130 +1,68 @@
-name: Test Windows Installer - Complete Verification
-on: [push]
+name: Build Windows Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
 
 jobs:
-  test:
+  build:
     runs-on: windows-latest
-    timeout-minutes: 20
+
     steps:
     - uses: actions/checkout@v4
 
-    - name: Download Installer from Release
-      run: |
-        Invoke-WebRequest -Uri "https://github.com/chriswang06/DisderoPoExcelCreator/releases/download/1.0.3/DisderoPoExcelCreator-Setup.exe" -OutFile "installer.exe"
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
 
-    - name: Check Python Pre-Installation
+    - name: Install dependencies
       run: |
-        echo "=== CHECKING PRE-EXISTING PYTHON ==="
-        try {
-          $pythonVersion = python --version 2>&1
-          echo "Python already exists: $pythonVersion"
-        } catch {
-          echo "No Python found (expected)"
-        }
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install pyinstaller
 
-    - name: Test Installer with Monitoring
-      timeout-minutes: 15
+    - name: Build exe with PyInstaller
       run: |
-        try {
-          echo "Starting installation at $(Get-Date -Format 'HH:mm:ss')..."
-          
-          # Start installer in background
-          $process = Start-Process -FilePath ".\installer.exe" `
-            -ArgumentList "/VERYSILENT", "/NORESTART", "/SUPPRESSMSGBOXES", "/LOG=install.log", "/NOCANCEL" `
-            -PassThru -NoNewWindow
-          
-          # Monitor the process
-          $timeout = 600  # 10 minutes in seconds
-          $counter = 0
-          
-          while (!$process.HasExited -and $counter -lt $timeout) {
-            Start-Sleep -Seconds 5
-            $counter += 5
-            
-            # Check every 30 seconds
-            if ($counter % 30 -eq 0) {
-              echo "Installation still running... ($counter seconds elapsed)"
-              
-              # Check for hanging child processes
-              $childProcesses = Get-WmiObject Win32_Process | Where-Object { $_.ParentProcessId -eq $process.Id }
-              if ($childProcesses) {
-                echo "Active child processes:"
-                $childProcesses | ForEach-Object { echo "  - $($_.Name) (PID: $($_.ProcessId))" }
-              }
-            }
-          }
-          
-          if (!$process.HasExited) {
-            echo "ERROR: Installation timed out after $timeout seconds"
-            
-            # Kill the installer and any child processes
-            Stop-Process -Id $process.Id -Force -ErrorAction SilentlyContinue
-            Get-WmiObject Win32_Process | Where-Object { $_.ParentProcessId -eq $process.Id } | ForEach-Object {
-              Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue
-            }
-            
-            exit 1
-          }
-          
-          echo "Installation completed at $(Get-Date -Format 'HH:mm:ss')"
-          
-          if ($process.ExitCode -eq 0) {
-            echo "Installation completed successfully"
-          } else {
-            echo "Installation failed with exit code: $($process.ExitCode)"
-            exit 1
-          }
-        } catch {
-          echo "Installation error: $($_.Exception.Message)"
-          exit 1
-        }
+        pyinstaller --name="DisderoPoExcelCreator" `
+          --onefile `
+          --windowed `
+          --add-data="productslist.xlsx;." `
+          --add-data="src;src" `
+          --clean `
+          gui_app.py
 
-    - name: Show Installation Log
-      if: always()
+    - name: Upload exe artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: DisderoPoExcelCreator-exe
+        path: dist/DisderoPoExcelCreator.exe
+
+    - name: Build installer with Inno Setup
       run: |
-        if (Test-Path "install.log") {
-          echo "=== FULL INSTALLATION LOG ==="
-          Get-Content "install.log"
-        } else {
-          echo "No installation log found"
-        }
+        # Download Inno Setup
+        Invoke-WebRequest -Uri "https://files.jrsoftware.org/is/6/innosetup-6.2.2.exe" -OutFile "innosetup.exe"
         
-        # Check for Python install log
-        $pythonLog = Get-ChildItem "$env:TEMP\python*.log" -ErrorAction SilentlyContinue | Select-Object -First 1
-        if ($pythonLog) {
-          echo "=== PYTHON INSTALLATION LOG ==="
-          Get-Content $pythonLog.FullName | Select-Object -Last 50
-        }
+        # Install Inno Setup silently
+        Start-Process -FilePath ".\innosetup.exe" -ArgumentList "/VERYSILENT", "/NORESTART" -Wait
+        
+        # Build installer
+        & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" simple_installer.iss
 
-    # Continue with the rest of your verification steps...
-    - name: Verify Application Files
-      run: |
-        echo "=== CHECKING APPLICATION FILES ==="
-        
-        # Check main application files
-        $appFiles = @(
-          "C:\Program Files (x86)\DisderoPoExcelCreator\gui_app.py",
-          "C:\Program Files (x86)\DisderoPoExcelCreator\main.py", 
-          "C:\Program Files (x86)\DisderoPoExcelCreator\productslist.xlsx",
-          "C:\Program Files (x86)\DisderoPoExcelCreator\requirements.txt",
-          "C:\Program Files (x86)\DisderoPoExcelCreator\run.bat"
-        )
-        
-        foreach ($file in $appFiles) {
-          if (Test-Path $file) {
-            echo "✅ Found: $file"
-          } else {
-            echo "❌ Missing: $file"
-            exit 1
-          }
-        }
-        
-        # Check src directory
-        if (Test-Path "C:\Program Files (x86)\DisderoPoExcelCreator\src") {
-          echo "✅ src directory found"
-        } else {
-          echo "❌ src directory missing"
-          exit 1
-        }
+    - name: Upload installer artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: DisderoPoExcelCreator-installer
+        path: output/DisderoPoExcelCreator-Setup.exe
 
-    # ... rest of your verification steps remain the same ...
+    - name: Create Release
+      if: startsWith(github.ref, 'refs/tags/')
+      uses: softprops/action-gh-release@v1
+      with:
+        files: |
+          dist/DisderoPoExcelCreator.exe
+          output/DisderoPoExcelCreator-Setup.exe
+        draft: false
+        prerelease: false
