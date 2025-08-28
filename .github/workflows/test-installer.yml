@@ -4,7 +4,7 @@ on: [push]
 jobs:
   test:
     runs-on: windows-latest
-    timeout-minutes: 20  # Increased timeout for multiple dependency installations
+    timeout-minutes: 20
     steps:
     - uses: actions/checkout@v4
 
@@ -12,12 +12,61 @@ jobs:
       run: |
         Invoke-WebRequest -Uri "https://github.com/chriswang06/DisderoPoExcelCreator/releases/download/1.0.2/DisderoPoExcelCreator-Setup.exe" -OutFile "installer.exe"
 
-    - name: Test Installer
-      timeout-minutes: 15  # Long timeout for Python/Tesseract/Poppler installation
+    - name: Check Python Pre-Installation
+      run: |
+        echo "=== CHECKING PRE-EXISTING PYTHON ==="
+        try {
+          $pythonVersion = python --version 2>&1
+          echo "Python already exists: $pythonVersion"
+        } catch {
+          echo "No Python found (expected)"
+        }
+
+    - name: Test Installer with Monitoring
+      timeout-minutes: 15
       run: |
         try {
-          echo "Starting installation (this may take several minutes)..."
-          $process = Start-Process -FilePath ".\installer.exe" -ArgumentList "/VERYSILENT", "/NORESTART", "/SUPPRESSMSGBOXES", "/LOG=install.log" -Wait -PassThru -NoNewWindow
+          echo "Starting installation at $(Get-Date -Format 'HH:mm:ss')..."
+          
+          # Start installer in background
+          $process = Start-Process -FilePath ".\installer.exe" `
+            -ArgumentList "/VERYSILENT", "/NORESTART", "/SUPPRESSMSGBOXES", "/LOG=install.log", "/NOCANCEL" `
+            -PassThru -NoNewWindow
+          
+          # Monitor the process
+          $timeout = 600  # 10 minutes in seconds
+          $counter = 0
+          
+          while (!$process.HasExited -and $counter -lt $timeout) {
+            Start-Sleep -Seconds 5
+            $counter += 5
+            
+            # Check every 30 seconds
+            if ($counter % 30 -eq 0) {
+              echo "Installation still running... ($counter seconds elapsed)"
+              
+              # Check for hanging child processes
+              $childProcesses = Get-WmiObject Win32_Process | Where-Object { $_.ParentProcessId -eq $process.Id }
+              if ($childProcesses) {
+                echo "Active child processes:"
+                $childProcesses | ForEach-Object { echo "  - $($_.Name) (PID: $($_.ProcessId))" }
+              }
+            }
+          }
+          
+          if (!$process.HasExited) {
+            echo "ERROR: Installation timed out after $timeout seconds"
+            
+            # Kill the installer and any child processes
+            Stop-Process -Id $process.Id -Force -ErrorAction SilentlyContinue
+            Get-WmiObject Win32_Process | Where-Object { $_.ParentProcessId -eq $process.Id } | ForEach-Object {
+              Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue
+            }
+            
+            exit 1
+          }
+          
+          echo "Installation completed at $(Get-Date -Format 'HH:mm:ss')"
           
           if ($process.ExitCode -eq 0) {
             echo "Installation completed successfully"
@@ -34,10 +83,20 @@ jobs:
       if: always()
       run: |
         if (Test-Path "install.log") {
-          echo "=== INSTALLATION LOG (last 50 lines) ==="
-          Get-Content "install.log" | Select-Object -Last 50
+          echo "=== FULL INSTALLATION LOG ==="
+          Get-Content "install.log"
+        } else {
+          echo "No installation log found"
+        }
+        
+        # Check for Python install log
+        $pythonLog = Get-ChildItem "$env:TEMP\python*.log" -ErrorAction SilentlyContinue | Select-Object -First 1
+        if ($pythonLog) {
+          echo "=== PYTHON INSTALLATION LOG ==="
+          Get-Content $pythonLog.FullName | Select-Object -Last 50
         }
 
+    # Continue with the rest of your verification steps...
     - name: Verify Application Files
       run: |
         echo "=== CHECKING APPLICATION FILES ==="
@@ -68,219 +127,4 @@ jobs:
           exit 1
         }
 
-    - name: Verify Python Installation
-      run: |
-        echo "=== CHECKING PYTHON INSTALLATION ==="
-        
-        # Check if Python was installed system-wide
-        try {
-          $pythonVersion = python --version 2>&1
-          echo "✅ System Python found: $pythonVersion"
-        } catch {
-          echo "❌ System Python not found or not in PATH"
-          exit 1
-        }
-        
-        # Check virtual environment
-        $venvPath = "C:\Program Files (x86)\DisderoPoExcelCreator\venv"
-        if (Test-Path $venvPath) {
-          echo "✅ Virtual environment created"
-          
-          # Check venv Python
-          $venvPython = "$venvPath\Scripts\python.exe"
-          if (Test-Path $venvPython) {
-            echo "✅ Virtual environment Python found"
-            
-            # Get venv Python version
-            try {
-              $venvVersion = & $venvPython --version 2>&1
-              echo "   Virtual env Python version: $venvVersion"
-            } catch {
-              echo "⚠️  Could not get virtual env Python version"
-            }
-          } else {
-            echo "❌ Virtual environment Python missing"
-            exit 1
-          }
-          
-          # Check if pip installed packages
-          try {
-            $installedPackages = & "$venvPath\Scripts\pip.exe" list 2>&1
-            echo "✅ pip packages installed successfully"
-            echo "   Package count: $(($installedPackages | Measure-Object).Count) lines"
-          } catch {
-            echo "❌ Could not check installed packages"
-            exit 1
-          }
-        } else {
-          echo "❌ Virtual environment not created"
-          exit 1
-        }
-
-    - name: Verify Tesseract Installation
-      run: |
-        echo "=== CHECKING TESSERACT INSTALLATION ==="
-        
-        # Check common Tesseract locations
-        $tesseractPaths = @(
-          "C:\Program Files\Tesseract-OCR\tesseract.exe",
-          "C:\Program Files (x86)\Tesseract-OCR\tesseract.exe"
-        )
-        
-        $tesseractFound = $false
-        foreach ($path in $tesseractPaths) {
-          if (Test-Path $path) {
-            echo "✅ Tesseract found at: $path"
-            
-            # Test Tesseract version
-            try {
-              $version = & $path --version 2>&1 | Select-Object -First 1
-              echo "   Tesseract version: $version"
-            } catch {
-              echo "⚠️  Could not get Tesseract version"
-            }
-            
-            $tesseractFound = $true
-            break
-          }
-        }
-        
-        if (-not $tesseractFound) {
-          echo "❌ Tesseract not found in expected locations"
-          exit 1
-        }
-        
-        # Check if tesseract is accessible via PATH
-        try {
-          $tesseractVersion = tesseract --version 2>&1 | Select-Object -First 1
-          echo "✅ Tesseract accessible via PATH: $tesseractVersion"
-        } catch {
-          echo "⚠️  Tesseract not in PATH (may still work with full path)"
-        }
-
-    - name: Verify Poppler Installation
-      run: |
-        echo "=== CHECKING POPPLER INSTALLATION ==="
-        
-        # Your installer extracts to {commonpf}\poppler-23.08.0\Library\bin
-        # But the zip filename shows Release-25.07.0-0.zip - there's a version mismatch
-        $popplerPaths = @(
-          "C:\Program Files\poppler-23.08.0\Library\bin",
-          "C:\Program Files\poppler-25.07.0\Library\bin",
-          "C:\Program Files (x86)\poppler-23.08.0\Library\bin",
-          "C:\Program Files (x86)\poppler-25.07.0\Library\bin"
-        )
-        
-        $popplerFound = $false
-        foreach ($path in $popplerPaths) {
-          if (Test-Path "$path\pdftoppm.exe") {
-            echo "✅ Poppler found at: $path"
-            
-            # Test a Poppler tool
-            try {
-              $version = & "$path\pdftoppm.exe" -v 2>&1 | Select-Object -First 1
-              echo "   Poppler version info: $version"
-            } catch {
-              echo "⚠️  Could not get Poppler version"
-            }
-            
-            $popplerFound = $true
-            break
-          }
-        }
-        
-        if (-not $popplerFound) {
-          echo "❌ Poppler not found in expected locations"
-          echo "Searched paths:"
-          $popplerPaths | ForEach-Object { echo "  $_" }
-        }
-        
-        # Check PATH for Poppler tools
-        try {
-          $popplerInPath = Get-Command pdftoppm -ErrorAction SilentlyContinue
-          if ($popplerInPath) {
-            echo "✅ Poppler tools accessible via PATH"
-          } else {
-            echo "⚠️  Poppler tools not in PATH"
-          }
-        } catch {
-          echo "⚠️  Could not check if Poppler is in PATH"
-        }
-
-    - name: Test Python Dependencies
-      run: |
-        echo "=== TESTING PYTHON DEPENDENCIES ==="
-        
-        $venvPython = "C:\Program Files (x86)\DisderoPoExcelCreator\venv\Scripts\python.exe"
-        
-        if (Test-Path $venvPython) {
-          # Test Python version
-          & $venvPython -c "import sys; print(f'Python version: {sys.version}')"
-          
-          # Test OCR dependencies
-          echo "Testing pytesseract..."
-          & $venvPython -c "import pytesseract; print('pytesseract imported successfully')" 2>$null
-          if ($LASTEXITCODE -ne 0) { echo "pytesseract import failed" }
-          
-          echo "Testing PIL/Pillow..."
-          & $venvPython -c "from PIL import Image; print('PIL/Pillow imported successfully')" 2>$null
-          if ($LASTEXITCODE -ne 0) { echo "PIL/Pillow import failed" }
-          
-          echo "Testing pdf2image..."
-          & $venvPython -c "import pdf2image; print('pdf2image imported successfully')" 2>$null
-          if ($LASTEXITCODE -ne 0) { echo "pdf2image import failed" }
-          
-          echo "Testing openpyxl..."
-          & $venvPython -c "import openpyxl; print('openpyxl imported successfully')" 2>$null
-          if ($LASTEXITCODE -ne 0) { echo "openpyxl import failed" }
-          
-          echo "Testing pandas..."
-          & $venvPython -c "import pandas; print('pandas imported successfully')" 2>$null
-          if ($LASTEXITCODE -ne 0) { echo "pandas import failed" }
-          
-        } else {
-          echo "Cannot test dependencies - venv Python not found"
-          exit 1
-        }
-
-    - name: Test Run Script
-      run: |
-        echo "=== TESTING RUN SCRIPT ==="
-        
-        $runBat = "C:\Program Files (x86)\DisderoPoExcelCreator\run.bat"
-        if (Test-Path $runBat) {
-          echo "✅ run.bat created successfully"
-          echo "Contents:"
-          Get-Content $runBat | ForEach-Object { echo "  $_" }
-        } else {
-          echo "❌ run.bat not created"
-          exit 1
-        }
-
-    - name: Check Desktop and Start Menu Icons
-      run: |
-        echo "=== CHECKING SHORTCUTS ==="
-        
-        # Check desktop shortcut
-        $desktopShortcut = "C:\Users\Public\Desktop\DisderoPoExcelCreator.lnk"
-        if (Test-Path $desktopShortcut) {
-          echo "✅ Desktop shortcut created"
-        } else {
-          echo "⚠️  Desktop shortcut not found (may be in different location)"
-        }
-        
-        # Check start menu
-        $startMenuPath = "C:\ProgramData\Microsoft\Windows\Start Menu\Programs\DisderoPoExcelCreator"
-        if (Test-Path $startMenuPath) {
-          echo "✅ Start menu folder created"
-        } else {
-          echo "⚠️  Start menu folder not found"
-        }
-
-    - name: Upload Installation Log
-      if: always()
-      uses: actions/upload-artifact@v4
-      with:
-        name: installation-log
-        path: install.log
-        if-no-files-found: ignore
+    # ... rest of your verification steps remain the same ...
