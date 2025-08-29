@@ -20,7 +20,9 @@ class OCRExtractor:
         Returns:
             Extracted text string
         """
-        return pytesseract.image_to_string(image)
+        text = pytesseract.image_to_string(image)
+        fixed_text = re.sub(r'[\u2019\u0022]', "'", text)
+        return fixed_text
 
     def extract_po_number(self, text: str) -> Optional[str]:
         """

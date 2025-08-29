@@ -61,6 +61,7 @@ def test_ocr_extractor(combined_image):
     ocr_text = extractor.extract_text(combined_image)
     print(f"✓ Extracted {len(ocr_text)} characters")
 
+    print(ocr_text)
     # Save OCR text for inspection
     with open('test_ocr_output.txt', 'w') as f:
         f.write(ocr_text)
