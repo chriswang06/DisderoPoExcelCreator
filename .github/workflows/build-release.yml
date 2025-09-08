@@ -54,35 +54,32 @@ jobs:
           exit 1
         }
 
-    - name: Download Inno Setup dependencies
+    - name: Verify dependencies exist
       run: |
-        # Create deps directory
-        New-Item -ItemType Directory -Force -Path "deps"
+        # Check that the required dependency files exist in the repo
+        Write-Host "Checking for required dependencies..."
         
-        # Download Tesseract with proper headers to avoid GitHub's redirect issues
-        Write-Host "Downloading Tesseract..."
-        $tesseractUrl = "https://github.com/UB-Mannheim/tesseract/releases/download/v5.5.0.20241111/tesseract-ocr-w64-setup-5.5.0.20241111.exe"
-        Invoke-WebRequest -Uri $tesseractUrl -OutFile "deps/tesseract-ocr-w64-setup-5.5.0.20241111.exe" -UserAgent "Mozilla/5.0" -Headers @{"Accept"="application/octet-stream"}
-        
-        # Download Poppler with proper headers
-        Write-Host "Downloading Poppler..."
-        $popplerUrl = "https://github.com/oschwartz10612/poppler-windows/releases/download/v25.07.0-0/Release-25.07.0-0.zip"
-        Invoke-WebRequest -Uri $popplerUrl -OutFile "deps/Release-25.07.0-0.zip" -UserAgent "Mozilla/5.0" -Headers @{"Accept"="application/octet-stream"}
-        
-        # Verify downloads
         if (Test-Path "deps/tesseract-ocr-w64-setup-5.5.0.20241111.exe") {
           $tesseractSize = (Get-Item "deps/tesseract-ocr-w64-setup-5.5.0.20241111.exe").Length / 1MB
-          Write-Host "✅ Tesseract downloaded ($([math]::Round($tesseractSize, 1)) MB)"
+          Write-Host "✅ Tesseract found ($([math]::Round($tesseractSize, 1)) MB)"
         } else {
-          Write-Error "❌ Tesseract download failed!"
+          Write-Error "❌ Tesseract installer not found in deps folder!"
+          Write-Host "Contents of deps folder:"
+          if (Test-Path "deps") {
+            Get-ChildItem "deps" | ForEach-Object { Write-Host "  - $($_.Name)" }
+          } else {
+            Write-Host "  - deps folder doesn't exist"
+          }
           exit 1
         }
         
         if (Test-Path "deps/Release-25.07.0-0.zip") {
           $popplerSize = (Get-Item "deps/Release-25.07.0-0.zip").Length / 1MB
-          Write-Host "✅ Poppler downloaded ($([math]::Round($popplerSize, 1)) MB)"
+          Write-Host "✅ Poppler found ($([math]::Round($popplerSize, 1)) MB)"
         } else {
-          Write-Error "❌ Poppler download failed!"
+          Write-Error "❌ Poppler zip not found in deps folder!"
+          Write-Host "Contents of deps folder:"
+          Get-ChildItem "deps" | ForEach-Object { Write-Host "  - $($_.Name)" }
           exit 1
         }
 
