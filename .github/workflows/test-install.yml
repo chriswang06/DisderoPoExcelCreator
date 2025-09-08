@@ -1,0 +1,91 @@
+name: Test Installer Dependencies
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  test-installer:
+    runs-on: windows-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Setup Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.10'
+
+    - name: Install Python dependencies
+      run: pip install -r requirements.txt
+
+    - name: Download Tesseract
+      run: |
+        mkdir deps
+        Invoke-WebRequest -Uri "https://github.com/UB-Mannheim/tesseract/releases/download/v5.5.0.20241111/tesseract-ocr-w64-setup-5.5.0.20241111.exe" -OutFile "deps/tesseract-installer.exe"
+      shell: powershell
+
+    - name: Download Poppler
+      run: |
+        Invoke-WebRequest -Uri "https://github.com/oschwartz10612/poppler-windows/releases/download/v25.07.0-0/Release-25.07.0-0.zip" -OutFile "deps/poppler.zip"
+      shell: powershell
+
+    - name: Install Tesseract
+      run: |
+        Start-Process -FilePath "deps/tesseract-installer.exe" -ArgumentList "/S" -Wait -NoNewWindow
+        if (Test-Path "C:\Program Files\Tesseract-OCR\tesseract.exe") {
+          Write-Host "Tesseract installed successfully"
+        } else {
+          Write-Error "Tesseract installation failed"
+          exit 1
+        }
+      shell: powershell
+
+    - name: Install Poppler
+      run: |
+        Expand-Archive -Path "deps/poppler.zip" -DestinationPath "C:\Program Files" -Force
+        $popplerDir = Get-ChildItem -Path "C:\Program Files" -Directory | Where-Object { $_.Name -like "poppler*" } | Select-Object -First 1
+        if ($popplerDir -and (Test-Path "$($popplerDir.FullName)\Library\bin\pdftoppm.exe")) {
+          Write-Host "Poppler installed successfully at $($popplerDir.FullName)"
+        } else {
+          Write-Error "Poppler installation failed"
+          exit 1
+        }
+      shell: powershell
+
+    - name: Test tool detection
+      run: |
+        python -c "import sys; sys.path.insert(0, 'src'); from runtime_config import find_tesseract, find_poppler; print('Tesseract:', find_tesseract()); print('Poppler:', find_poppler())"
+
+    - name: Test OCR functionality
+      run: |
+        python -c "import sys; sys.path.insert(0, 'src'); from runtime_config import configure_tools; configure_tools(); import pytesseract; from PIL import Image; img = Image.new('RGB', (100, 30), 'white'); print('OCR test:', repr(pytesseract.image_to_string(img)))"
+
+    - name: Test PyInstaller build
+      run: |
+        pyinstaller --name="Test" --onefile --windowed --add-data="productslist.xlsx;." --add-data="src;src" --clean gui_app.py
+        if (Test-Path "dist/Test.exe") {
+          Write-Host "Build successful"
+        } else {
+          Write-Error "Build failed"
+          exit 1
+        }
+      shell: powershell
+
+    - name: Verify expected paths exist
+      run: |
+        $paths = @(
+          "C:\Program Files\Tesseract-OCR\tesseract.exe",
+          "C:\Program Files\poppler-25.07.0\Library\bin\pdftoppm.exe"
+        )
+        foreach ($path in $paths) {
+          if (Test-Path $path) {
+            Write-Host "FOUND: $path"
+          } else {
+            Write-Host "MISSING: $path"
+          }
+        }
+      shell: powershell

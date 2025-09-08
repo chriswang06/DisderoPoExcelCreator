@@ -1,0 +1,173 @@
+name: Build Windows Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install pyinstaller
+
+    - name: Build exe with PyInstaller
+      run: |
+        pyinstaller --name="DisderoPoExcelCreator" `
+          --onefile `
+          --windowed `
+          --add-data="productslist.xlsx;." `
+          --add-data="src;src" `
+          --hidden-import="pytesseract" `
+          --hidden-import="PIL" `
+          --hidden-import="pdf2image" `
+          --hidden-import="openpyxl" `
+          --hidden-import="pandas" `
+          --hidden-import="tkinter" `
+          --hidden-import="tkinter.filedialog" `
+          --hidden-import="tkinter.messagebox" `
+          --hidden-import="tkinter.ttk" `
+          --hidden-import="xlsxwriter" `
+          --clean `
+          gui_app.py
+
+    - name: Verify exe was created
+      run: |
+        if (Test-Path "dist/DisderoPoExcelCreator.exe") {
+          $size = (Get-Item "dist/DisderoPoExcelCreator.exe").Length / 1MB
+          Write-Host "✅ Executable created successfully ($([math]::Round($size, 1)) MB)"
+        } else {
+          Write-Error "❌ Executable not found!"
+          exit 1
+        }
+
+    - name: Download Inno Setup dependencies
+      run: |
+        # Create deps directory
+        New-Item -ItemType Directory -Force -Path "deps"
+        
+        # Download Tesseract (same version as your Inno script expects)
+        Write-Host "Downloading Tesseract..."
+        Invoke-WebRequest -Uri "https://github.com/UB-Mannheim/tesseract/releases/download/v5.5.0.20241111/tesseract-ocr-w64-setup-5.5.0.20241111.exe" -OutFile "deps/tesseract-ocr-w64-setup-5.5.0.20241111.exe"
+        
+        # Download Poppler (same version as your Inno script expects)
+        Write-Host "Downloading Poppler..."
+        Invoke-WebRequest -Uri "https://github.com/oschwartz10612/poppler-windows/releases/download/v25.07.0-0/Release-25.07.0-0.zip" -OutFile "deps/Release-25.07.0-0.zip"
+        
+        # Verify downloads
+        if (Test-Path "deps/tesseract-ocr-w64-setup-5.5.0.20241111.exe") {
+          $tesseractSize = (Get-Item "deps/tesseract-ocr-w64-setup-5.5.0.20241111.exe").Length / 1MB
+          Write-Host "✅ Tesseract downloaded ($([math]::Round($tesseractSize, 1)) MB)"
+        } else {
+          Write-Error "❌ Tesseract download failed!"
+          exit 1
+        }
+        
+        if (Test-Path "deps/Release-25.07.0-0.zip") {
+          $popplerSize = (Get-Item "deps/Release-25.07.0-0.zip").Length / 1MB
+          Write-Host "✅ Poppler downloaded ($([math]::Round($popplerSize, 1)) MB)"
+        } else {
+          Write-Error "❌ Poppler download failed!"
+          exit 1
+        }
+
+    - name: Install Inno Setup
+      run: |
+        # Download Inno Setup
+        Write-Host "Downloading Inno Setup..."
+        Invoke-WebRequest -Uri "https://files.jrsoftware.org/is/6/innosetup-6.2.2.exe" -OutFile "innosetup.exe"
+        
+        # Install Inno Setup silently
+        Write-Host "Installing Inno Setup..."
+        Start-Process -FilePath ".\innosetup.exe" -ArgumentList "/VERYSILENT", "/NORESTART" -Wait
+        
+        # Verify installation
+        if (Test-Path "C:\Program Files (x86)\Inno Setup 6\ISCC.exe") {
+          Write-Host "✅ Inno Setup installed successfully"
+        } else {
+          Write-Error "❌ Inno Setup installation failed!"
+          exit 1
+        }
+
+    - name: Find and validate Inno Setup script
+      run: |
+        # Find your actual .iss file
+        $issFiles = Get-ChildItem -Filter "*.iss"
+        
+        if ($issFiles.Count -eq 0) {
+          Write-Error "❌ No .iss files found!"
+          Write-Host "Available files:"
+          Get-ChildItem | ForEach-Object { Write-Host "  - $($_.Name)" }
+          exit 1
+        } elseif ($issFiles.Count -gt 1) {
+          Write-Warning "⚠️ Multiple .iss files found:"
+          $issFiles | ForEach-Object { Write-Host "  - $($_.Name)" }
+          $issFile = $issFiles[0].Name
+          Write-Host "Using: $issFile"
+        } else {
+          $issFile = $issFiles[0].Name
+          Write-Host "✅ Found installer script: $issFile"
+        }
+        
+        # Store for next step
+        echo "ISS_FILE=$issFile" >> $env:GITHUB_ENV
+
+    - name: Build installer with Inno Setup
+      run: |
+        Write-Host "Building installer with $env:ISS_FILE..."
+        
+        # Build the installer
+        & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" "$env:ISS_FILE"
+        
+        # Check if installer was created
+        if (Test-Path "output/DisderoPoExcelCreator-Setup.exe") {
+          $size = (Get-Item "output/DisderoPoExcelCreator-Setup.exe").Length / 1MB
+          Write-Host "✅ Installer created successfully ($([math]::Round($size, 1)) MB)"
+        } else {
+          Write-Error "❌ Installer not created!"
+          Write-Host "Contents of output directory:"
+          if (Test-Path "output") {
+            Get-ChildItem "output" | ForEach-Object { Write-Host "  - $($_.Name)" }
+          } else {
+            Write-Host "  - output directory doesn't exist"
+          }
+          exit 1
+        }
+
+    - name: Upload exe artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: DisderoPoExcelCreator-exe
+        path: dist/DisderoPoExcelCreator.exe
+
+    - name: Upload installer artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: DisderoPoExcelCreator-installer
+        path: output/DisderoPoExcelCreator-Setup.exe
+
+    - name: Create Release
+      if: startsWith(github.ref, 'refs/tags/')
+      uses: softprops/action-gh-release@v1
+      with:
+        files: |
+          dist/DisderoPoExcelCreator.exe
+          output/DisderoPoExcelCreator-Setup.exe
+        draft: false
+        prerelease: false
+        generate_release_notes: true
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

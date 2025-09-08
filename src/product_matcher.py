@@ -105,16 +105,39 @@ class ProductMatcher:
         if products_df.empty:
             return []
 
+        # *** CHANGES START HERE ***
+        # Handle None/empty dimensions - filter them out or provide defaults
+        products_df = products_df.dropna(subset=['dimensions'])  # Remove rows with no dimensions
+        products_df = products_df[products_df['dimensions'].str.strip() != '']  # Remove empty strings
+
+        if products_df.empty:
+            return []  # No valid products after filtering
+
         # Split dimensions into piece count and length
-        products_df[["Piece_Count", "Dimension_Length"]] = products_df["dimensions"].str.split("/", expand=True)
-        products_df["Piece_Count"] = products_df["Piece_Count"].astype(int)
+        split_dims = products_df["dimensions"].str.split("/", expand=True)
+
+        # Check if we have valid splits
+        if split_dims.shape[1] < 2:
+            return []  # Invalid dimension format
+
+        products_df["Piece_Count"] = split_dims[0]
+        products_df["Dimension_Length"] = split_dims[1]
+
+        # Handle None values before converting to int
+        products_df["Piece_Count"] = products_df["Piece_Count"].fillna('0')  # Fill None with '0'
+        products_df["Dimension_Length"] = products_df["Dimension_Length"].fillna('0')
+
+        # Now safely convert to int
+        products_df["Piece_Count"] = pd.to_numeric(products_df["Piece_Count"], errors='coerce').fillna(0).astype(int)
 
         # Clean dimension length
         products_df["Dimension_Length"] = (
             products_df["Dimension_Length"]
             .str.replace(r"[^\d]", "", regex=True)
-            .astype(int)
+            .replace('', '0')  # Replace empty strings with '0'
         )
+        products_df["Dimension_Length"] = pd.to_numeric(products_df["Dimension_Length"], errors='coerce').fillna(0).astype(int)
+        # *** CHANGES END HERE ***
 
         # Clean master dimension length too
         self.master_df["Dimension_Length"] = (
