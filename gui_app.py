@@ -11,6 +11,8 @@ import threading
 import sys
 import os
 import traceback
+import platform
+import subprocess
 
 
 # Add resource path function for PyInstaller
@@ -42,7 +44,17 @@ except Exception as e:
     # Show error dialog if tools not found
     import tkinter.messagebox as mb
 
-    mb.showerror("Configuration Error", str(e))
+    detailed_error = f"""Tool Configuration Error:
+{str(e)}
+
+System Information:
+- Python: {sys.executable}
+- Version: {sys.version}
+- Working Dir: {os.getcwd()}
+
+Please ensure Tesseract and Poppler are properly installed."""
+
+    mb.showerror("Configuration Error", detailed_error)
     sys.exit(1)
 
 
@@ -50,11 +62,13 @@ class POProcessorGUI:
     def __init__(self, root):
         self.root = root
         self.root.title("Purchase Order Processor")
-        self.root.geometry("600x500")
+        self.root.geometry("600x550")
         self.root.resizable(False, False)
 
         # Variables
         self.pdf_path = tk.StringVar()
+        self._test_pdf_path = None  # Store for diagnostics
+
         # Use the resource path for the default master file
         default_master = get_resource_path("productslist.xlsx")
         if os.path.exists(default_master):
@@ -164,19 +178,37 @@ class POProcessorGUI:
 
         tk.Label(options_frame, text="(Higher DPI = better quality but slower)").pack(side="left")
 
+        # Button Frame
+        button_frame = tk.Frame(main_frame)
+        button_frame.pack(pady=20)
+
         # Process Button
         self.process_btn = tk.Button(
-            main_frame,
+            button_frame,
             text="Process PDF",
             command=self.process_pdf,
             height=2,
-            width=20,
+            width=18,
             font=("Arial", 12, "bold"),
             bg="#27ae60",
             fg="white",
             cursor="hand2"
         )
-        self.process_btn.pack(pady=20)
+        self.process_btn.pack(side="left", padx=(0, 10))
+
+        # Diagnostic Button
+        diagnostic_btn = tk.Button(
+            button_frame,
+            text="Run Diagnostics",
+            command=self.run_diagnostics,
+            height=2,
+            width=18,
+            font=("Arial", 10),
+            bg="#3498db",
+            fg="white",
+            cursor="hand2"
+        )
+        diagnostic_btn.pack(side="left")
 
         # Progress Bar
         self.progress_bar = ttk.Progressbar(
@@ -184,7 +216,7 @@ class POProcessorGUI:
             mode="indeterminate",
             length=400
         )
-        self.progress_bar.pack(pady=(0, 10))
+        self.progress_bar.pack(pady=(10, 10))
 
         # Progress Text
         progress_label = tk.Label(
@@ -216,6 +248,7 @@ class POProcessorGUI:
         )
         if filename:
             self.pdf_path.set(filename)
+            self._test_pdf_path = filename  # Store for diagnostics
             self.status_text.set(f"Selected: {Path(filename).name}")
 
     def browse_master(self):
@@ -234,6 +267,159 @@ class POProcessorGUI:
         if directory:
             self.output_path.set(directory)
             self.status_text.set(f"Output to: {directory}")
+
+    def run_diagnostics(self):
+        """Run diagnostic tests and show results"""
+        diagnostic_window = tk.Toplevel(self.root)
+        diagnostic_window.title("System Diagnostics")
+        diagnostic_window.geometry("700x500")
+
+        # Create text widget with scrollbar
+        frame = tk.Frame(diagnostic_window)
+        frame.pack(fill="both", expand=True, padx=10, pady=10)
+
+        text_widget = tk.Text(frame, wrap=tk.WORD, font=("Consolas", 9))
+        scrollbar = tk.Scrollbar(frame, orient="vertical", command=text_widget.yview)
+        text_widget.configure(yscrollcommand=scrollbar.set)
+
+        text_widget.pack(side="left", fill="both", expand=True)
+        scrollbar.pack(side="right", fill="y")
+
+        def log(message):
+            text_widget.insert(tk.END, message + "\n")
+            text_widget.see(tk.END)
+            diagnostic_window.update()
+
+        log("=== SYSTEM DIAGNOSTICS ===\n")
+
+        # System info
+        log(f"Python Version: {sys.version}")
+        log(f"Platform: {platform.platform()}")
+        log(f"Architecture: {platform.architecture()}")
+        log(f"Working Directory: {os.getcwd()}\n")
+
+        # Tool detection
+        log("=== TOOL DETECTION ===")
+        try:
+            from src.runtime_config import find_tesseract, find_poppler
+
+            tesseract_path = find_tesseract()
+            if tesseract_path:
+                log(f"✓ Tesseract found: {tesseract_path}")
+                try:
+                    result = subprocess.run([tesseract_path, '--version'],
+                                            capture_output=True, text=True, timeout=10)
+                    if result.stdout:
+                        version_line = result.stdout.split('\n')[0]
+                        log(f"  Version: {version_line}")
+                    else:
+                        log(f"  Warning: Could not get version")
+                except Exception as e:
+                    log(f"  Warning: Could not get version - {e}")
+            else:
+                log("✗ Tesseract not found")
+
+            poppler_path = find_poppler()
+            if poppler_path:
+                log(f"✓ Poppler found: {poppler_path}")
+                pdftoppm_path = os.path.join(poppler_path, "pdftoppm.exe")
+                if os.path.exists(pdftoppm_path):
+                    log(f"  pdftoppm.exe exists")
+                else:
+                    log(f"  Warning: pdftoppm.exe not found in bin directory")
+            else:
+                log("✗ Poppler not found")
+
+        except Exception as e:
+            log(f"✗ Tool detection failed: {e}")
+
+        log("\n=== OCR TEST ===")
+        try:
+            import pytesseract
+            from PIL import Image, ImageDraw
+
+            # Create test image
+            test_img = Image.new('RGB', (300, 80), color='white')
+            draw = ImageDraw.Draw(test_img)
+            draw.text((10, 10), 'DISDERO LUMBER CO. D12345', fill='black')
+            draw.text((10, 40), '1 LF 123456-1234-ABC', fill='black')
+
+            # Test OCR
+            result = pytesseract.image_to_string(test_img).strip()
+            log(f"✓ OCR Test Result: {repr(result)}")
+
+            if 'DISDERO' in result and '12345' in result:
+                log("✓ OCR successfully read test text")
+            else:
+                log("⚠ OCR had trouble reading test text - may cause parsing issues")
+
+        except Exception as e:
+            log(f"✗ OCR test failed: {e}")
+
+        log("\n=== MASTER FILE TEST ===")
+        try:
+            master_file = self.master_path.get()
+            if os.path.exists(master_file):
+                log(f"✓ Master file found: {master_file}")
+
+                # Test loading
+                from src.product_matcher import ProductMatcher
+                matcher = ProductMatcher(master_file)
+                log(f"✓ Master file loaded: {len(matcher.master_df)} products")
+
+            else:
+                log(f"✗ Master file not found: {master_file}")
+        except Exception as e:
+            log(f"✗ Master file test failed: {e}")
+
+        log("\n=== PDF PROCESSING TEST ===")
+        if hasattr(self, '_test_pdf_path') and self._test_pdf_path and os.path.exists(self._test_pdf_path):
+            try:
+                pdf_processor = PDFProcessor(dpi=150, poppler_path=poppler_path)
+
+                log("Testing PDF conversion...")
+                images = pdf_processor.convert_pdf_to_images(self._test_pdf_path)
+                log(f"✓ PDF converted to {len(images)} images")
+
+                # Test OCR on first page
+                if images:
+                    ocr_extractor = OCRExtractor()
+                    text = ocr_extractor.extract_text(images[0])
+                    log(f"✓ OCR extracted {len(text)} characters")
+                    log(f"Sample text: {repr(text[:100])}")
+
+                    # Test parsing
+                    parsed_data = ocr_extractor.parse_document(text)
+                    po_number, products = list(parsed_data.items())[0]
+                    log(f"✓ Parsed PO: {po_number}, found {len(products)} products")
+
+                pdf_processor.cleanup_temp_files()
+
+            except Exception as e:
+                log(f"✗ PDF processing test failed: {e}")
+                import traceback
+                log(f"Error details: {traceback.format_exc()}")
+        else:
+            log("⚠ No test PDF available (select a PDF first to enable this test)")
+
+        log("\n=== DIAGNOSTIC COMPLETE ===")
+        log("If you're experiencing issues, save this output and send it for support.")
+
+        # Add buttons
+        button_frame = tk.Frame(diagnostic_window)
+        button_frame.pack(pady=10)
+
+        def save_diagnostics():
+            try:
+                content = text_widget.get(1.0, tk.END)
+                with open("diagnostics.txt", "w", encoding="utf-8") as f:
+                    f.write(content)
+                messagebox.showinfo("Saved", "Diagnostics saved to diagnostics.txt")
+            except Exception as e:
+                messagebox.showerror("Error", f"Could not save file: {e}")
+
+        tk.Button(button_frame, text="Save to File", command=save_diagnostics).pack(side="left", padx=5)
+        tk.Button(button_frame, text="Close", command=diagnostic_window.destroy).pack(side="left", padx=5)
 
     def process_pdf(self):
         # Validate inputs
@@ -306,15 +492,48 @@ class POProcessorGUI:
             # Stop progress bar
             self.progress_bar.stop()
 
-            # Show error message
-            error_msg = f"Error processing PDF:\n\n{str(e)}\n\nDetails:\n{traceback.format_exc()}"
-            self.root.after(0, lambda: messagebox.showerror("Processing Error", error_msg))
-            self.root.after(0, lambda: self.update_progress(""))
-            self.root.after(0, lambda: self.status_text.set("Error occurred during processing"))
+            # Enhanced error reporting with option to run diagnostics
+            self.root.after(0, lambda: self.show_error_with_diagnostics(e))
 
         finally:
             # Re-enable button
             self.root.after(0, lambda: self.process_btn.config(state="normal", bg="#27ae60"))
+
+    def show_error_with_diagnostics(self, error):
+        """Show error with option to run diagnostics"""
+        # Save detailed error log
+        error_details = f"""Error processing PDF: {str(error)}
+
+Error Type: {type(error).__name__}
+PDF File: {self.pdf_path.get()}
+Master File: {self.master_path.get()}
+Python Version: {sys.version}
+Working Directory: {os.getcwd()}
+Platform: {platform.platform()}
+
+Full Traceback:
+{traceback.format_exc()}
+"""
+
+        try:
+            with open("error_log.txt", "w", encoding="utf-8") as f:
+                f.write(error_details)
+        except:
+            pass  # Don't fail on logging failure
+
+        # Show error message with diagnostic option
+        result = messagebox.askyesno(
+            "Processing Error",
+            f"An error occurred during processing:\n\n{str(error)}\n\n" +
+            "Error details have been saved to error_log.txt\n\n" +
+            "Would you like to run system diagnostics to help identify the issue?"
+        )
+
+        self.update_progress("")
+        self.status_text.set("Error occurred during processing")
+
+        if result:
+            self.run_diagnostics()
 
     def update_progress(self, message):
         self.progress_text.set(message)
@@ -322,7 +541,7 @@ class POProcessorGUI:
 
     def show_success(self, output_file, po_number):
         self.update_progress("")
-        self.status_text.set(f"✓ Successfully processed PO #{po_number}")
+        self.status_text.set(f"Successfully processed PO #{po_number}")
 
         result = messagebox.askyesno(
             "Success",
@@ -331,9 +550,6 @@ class POProcessorGUI:
 
         if result:
             # Open the output folder in file explorer
-            import subprocess
-            import platform
-
             if platform.system() == 'Windows':
                 subprocess.Popen(['explorer', str(output_file.parent)])
             elif platform.system() == 'Darwin':  # macOS
