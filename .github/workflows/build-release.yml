@@ -59,13 +59,15 @@ jobs:
         # Create deps directory
         New-Item -ItemType Directory -Force -Path "deps"
         
-        # Download Tesseract (same version as your Inno script expects)
+        # Download Tesseract with proper headers to avoid GitHub's redirect issues
         Write-Host "Downloading Tesseract..."
-        Invoke-WebRequest -Uri "https://github.com/UB-Mannheim/tesseract/releases/download/v5.5.0.20241111/tesseract-ocr-w64-setup-5.5.0.20241111.exe" -OutFile "deps/tesseract-ocr-w64-setup-5.5.0.20241111.exe"
+        $tesseractUrl = "https://github.com/UB-Mannheim/tesseract/releases/download/v5.5.0.20241111/tesseract-ocr-w64-setup-5.5.0.20241111.exe"
+        Invoke-WebRequest -Uri $tesseractUrl -OutFile "deps/tesseract-ocr-w64-setup-5.5.0.20241111.exe" -UserAgent "Mozilla/5.0" -Headers @{"Accept"="application/octet-stream"}
         
-        # Download Poppler (same version as your Inno script expects)
+        # Download Poppler with proper headers
         Write-Host "Downloading Poppler..."
-        Invoke-WebRequest -Uri "https://github.com/oschwartz10612/poppler-windows/releases/download/v25.07.0-0/Release-25.07.0-0.zip" -OutFile "deps/Release-25.07.0-0.zip"
+        $popplerUrl = "https://github.com/oschwartz10612/poppler-windows/releases/download/v25.07.0-0/Release-25.07.0-0.zip"
+        Invoke-WebRequest -Uri $popplerUrl -OutFile "deps/Release-25.07.0-0.zip" -UserAgent "Mozilla/5.0" -Headers @{"Accept"="application/octet-stream"}
         
         # Verify downloads
         if (Test-Path "deps/tesseract-ocr-w64-setup-5.5.0.20241111.exe") {
